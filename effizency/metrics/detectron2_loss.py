@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict
 import tensorflow as tf
 import numpy as np
 from code_loader.helpers.detection.utils import xywh_to_xyxy_format
@@ -8,7 +8,7 @@ from effizency.utils.loss_utils import label_and_sample_anchors, get_deltas, lab
     crop_and_resize, nonzero
 
 
-def calc_detectron2_loss(gt_boxes: tf.Tensor, anchors: tf.Tensor,
+def calc_detectron2_loss(gt_boxes: tf.Tensor,
                          pred_objectness_logits: tf.Tensor, pred_anchor_deltas: tf.Tensor,
                          cls_loss_predictions: tf.Tensor, box_loss_predictions: tf.Tensor,
                          proposal_boxes: tf.Tensor, proposal_logits: tf.Tensor, mask_features: tf.Tensor,
@@ -17,7 +17,6 @@ def calc_detectron2_loss(gt_boxes: tf.Tensor, anchors: tf.Tensor,
     Keras' implementation of Detectron2 loss function.
         Args:
             gt_boxes: Tensor of shape (N, 5) where N is the number of ground-truth instances.
-            anchors: Tensor of shape (R, 4) where N is the number of anchors.
             pred_objectness_logits: Tensor of shape (R, 2) where R is the number of anchors.
             pred_anchor_deltas: Tensor of shape (R, 4) where R is the number of anchors.
             cls_loss_predictions: Tensor of shape (N, 2) where N is the number of ground-truth instances.
@@ -30,6 +29,7 @@ def calc_detectron2_loss(gt_boxes: tf.Tensor, anchors: tf.Tensor,
         Returns:
             tf.Tensor: The calculated loss.
     """
+    anchors = CONFIG['anchors']
     boxes_coor = gt_boxes[..., :-1] * CONFIG['image_size'][0]
     gt_boxes = tf.concat([xywh_to_xyxy_format(boxes_coor), gt_boxes[..., -1, tf.newaxis]], axis=-1)
     rpn_losses = calc_rpn_loss(gt_boxes, anchors, pred_objectness_logits, pred_anchor_deltas)

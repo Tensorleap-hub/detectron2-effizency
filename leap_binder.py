@@ -4,15 +4,13 @@ from typing import List, Union, Dict
 import cv2
 import numpy as np
 import detectron2.data.transforms as T
-from code_loader.contract.enums import LeapDataType
+
 from detectron2.data.detection_utils import read_image
 
-from pycocotools.coco import COCO
-
-from torch import as_tensor
 # Tensorleap imports
 from code_loader import leap_binder
 from code_loader.contract.datasetclasses import PreprocessResponse
+from code_loader.contract.enums import LeapDataType
 
 from effizency.config import CONFIG
 from effizency.metrics.detectron2_loss import calc_rpn_loss, calc_roi_losses, calc_detectron2_loss
@@ -38,6 +36,8 @@ def preprocess_func() -> List[PreprocessResponse]:
 
     train_list_of_paths = [os.path.join('train', p) for p in train_list_of_paths[:train_size]]
     val_list_of_paths = [os.path.join('val', p) for p in val_list_of_paths[:val_size]]
+
+
 
     train = PreprocessResponse(length=len(train_list_of_paths), data={'images': train_list_of_paths})
     val = PreprocessResponse(length=len(val_list_of_paths), data={'images': val_list_of_paths})
