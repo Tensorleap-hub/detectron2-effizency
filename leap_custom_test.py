@@ -33,30 +33,30 @@ if __name__ == '__main__':
         tf_result = [tf.convert_to_tensor(r) for r in onnx_result]
 
         # Test Visualizer
-        bb_gt_vis = bb_gt_visualizer(image=raw_input_image[0], bboxes=bbox_gt[0, ...])
-        draw_image_with_boxes(bb_gt_vis.data / 255., bb_gt_vis.bounding_boxes)
-
-        pred_bb_vis = prediction_bb_visualizer(image=raw_input_image[0],
-                                               bboxes=tf_result[0].numpy(),
-                                               scores=tf_result[1].numpy(),
-                                               class_ids=tf_result[2].numpy())
-        draw_image_with_boxes(pred_bb_vis.data / 255., pred_bb_vis.bounding_boxes)
-
-        gt_mask_vis = gt_mask_visualizer(image=raw_input_image[0], mask=mask[0])
-        draw_image_with_masks(gt_mask_vis.image / 255., gt_mask_vis.mask, gt_mask_vis.labels)
-
-        pred_mask_vis = pred_mask_visualizer(image=raw_input_image[0], masks=tf_result[3].numpy(),
-                                             bboxes=tf_result[0].numpy())
-        draw_image_with_masks(pred_mask_vis.image / 255., pred_mask_vis.mask, pred_mask_vis.labels)
+        # bb_gt_vis = bb_gt_visualizer(image=raw_input_image[0], bboxes=bbox_gt[0, ...])
+        # draw_image_with_boxes(bb_gt_vis.data / 255., bb_gt_vis.bounding_boxes)
+        #
+        # pred_bb_vis = prediction_bb_visualizer(image=raw_input_image[0],
+        #                                        bboxes=tf_result[0].numpy(),
+        #                                        scores=tf_result[1].numpy(),
+        #                                        class_ids=tf_result[2].numpy())
+        # draw_image_with_boxes(pred_bb_vis.data / 255., pred_bb_vis.bounding_boxes)
+        #
+        # gt_mask_vis = gt_mask_visualizer(image=raw_input_image[0], mask=mask[0])
+        # draw_image_with_masks(gt_mask_vis.image / 255., gt_mask_vis.mask, gt_mask_vis.labels)
+        #
+        # pred_mask_vis = pred_mask_visualizer(image=raw_input_image[0], masks=tf_result[3].numpy(),
+        #                                      bboxes=tf_result[0].numpy())
+        # draw_image_with_masks(pred_mask_vis.image / 255., pred_mask_vis.mask, pred_mask_vis.labels)
 
         # Calculate metrics
         mask_iou = calc_mean_mask_iou(gt_masks=tf.convert_to_tensor(mask), pred_masks=tf_result[3],
                                       pred_bboxes=tf_result[0])
 
         # Calculate loss
-        loss = calc_detectron2_loss(gt_boxes=tf.convert_to_tensor(bbox_gt), anchors=tf_result[4],
-                                    pred_objectness_logits=tf_result[5], pred_anchor_deltas=tf_result[6],
-                                    cls_loss_predictions=tf_result[7], box_loss_predictions=tf_result[8],
-                                    proposal_boxes=tf_result[10], proposal_logits=tf_result[11],
+        loss = calc_detectron2_loss(gt_boxes=tf.convert_to_tensor(bbox_gt),
+                                    pred_objectness_logits=tf_result[4], pred_anchor_deltas=tf_result[5],
+                                    cls_loss_predictions=tf_result[6], box_loss_predictions=tf_result[7],
+                                    proposal_boxes=tf_result[9], proposal_logits=tf_result[10],
                                     gt_polygons=tf.convert_to_tensor(polygons),
-                                    mask_features=tf_result[9])
+                                    mask_features=tf_result[8])

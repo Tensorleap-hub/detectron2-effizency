@@ -12,15 +12,13 @@ import detectron2.data.transforms as T
 
 cfg = get_cfg()
 # Load cfg from a file
-cfg.merge_from_file("config.yml")
+cfg.merge_from_file("model_export/config.yml")
 
 model = build_model(cfg)
 
-weights_file = "model_final.pth"
+weights_file = "model_export/model_final.pth"
 DetectionCheckpointer(model).load(weights_file)
 
-# dummy_input = [torch.tensor(np.random.uniform(0, 1, (3, 800, 800)), dtype=torch.float32)]
-# example_input = [torch.tensor(np.asarray(Image.open('roof_1.png').resize((800, 800))).transpose((2, 0, 1)))]
 original_image = detection_utils.read_image('/Users/ranhomri/tensorleap/data/effizency-datasets/val/CH_192.png',
                                             format=cfg.INPUT.FORMAT)
 aug = T.ResizeShortestEdge(
@@ -76,9 +74,8 @@ class InferenceModel(torch.nn.Module):
             padding_constraints={'square_size': 0},
         )
         features = self.backbone(images.tensor)
-        proposals, _, anchors, pred_objectness_logits, pred_anchor_deltas = self.proposal_generator(images, features,
+        proposals, _, pred_objectness_logits, pred_anchor_deltas = self.proposal_generator(images, features,
                                                                                                     None)
-        anchors = torch.cat([a.tensor for a in anchors], 0)
         pred_objectness_logits = torch.cat(pred_objectness_logits, 1)
         pred_anchor_deltas = torch.cat(pred_anchor_deltas, 1)
         results, _, cls_box_loss_predictions, mask_loss_features, mask_loss_instances = self.roi_heads(images, features,
@@ -88,7 +85,7 @@ class InferenceModel(torch.nn.Module):
         mask_loss_instances = mask_loss_instances[0].get_fields()
         results = results[0].get_fields()
         return results['pred_boxes'].tensor, results['scores'], results['pred_classes'], results['pred_masks'], \
-            anchors, pred_objectness_logits, pred_anchor_deltas, cls_loss_predictions, box_loss_predictions, \
+            pred_objectness_logits, pred_anchor_deltas, cls_loss_predictions, box_loss_predictions, \
             mask_loss_features, mask_loss_instances['proposal_boxes'].tensor, mask_loss_instances['objectness_logits']
 
 
@@ -100,7 +97,7 @@ inference_model = InferenceModel().eval()
 
 infer_output = inference_model(processed_input)
 
-output_names = ['pred_boxes', 'scores', 'pred_classes', 'pred_masks', 'anchors', 'pred_objectness_logits',
+output_names = ['pred_boxes', 'scores', 'pred_classes', 'pred_masks', 'pred_objectness_logits',
                 'pred_anchor_deltas', 'cls_loss_predictions', 'box_loss_predictions', 'mask_loss_features',
                 'proposal_boxes', 'proposal_logits']
 

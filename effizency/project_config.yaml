@@ -64,3 +64,18 @@ mask_threshold: 0.15
 
 # metadata
 small_bb_threshold: 0.05
+
+# model config
+model_config_path: model/config.yml
+
+feature_maps:
+  - - 200
+    - 200
+  - - 100
+    - 100
+  - - 50
+    - 50
+  - - 25
+    - 25
+  - - 13
+    - 13
