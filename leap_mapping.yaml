@@ -1,0 +1,402 @@
+decorators:
+  - operation: Input
+    data:
+      type: Input
+      output_name: image
+    id: '156'
+    inputs: {}
+    outputs:
+      image:
+        - inputKey: input
+          operation: Permute
+          name: permute_313
+          id: '155'
+  - operation: CustomLoss
+    data:
+      arg_names:
+        - gt_boxes
+        - gt_polygons
+        - pred_objectness_logits
+        - pred_anchor_deltas
+        - cls_loss_predictions
+        - box_loss_predictions
+        - proposal_boxes
+        - proposal_logits
+        - mask_features
+      user_unique_name: Detectron2 Loss
+      name: Detectron2 Loss
+      selected: Detectron2 Loss
+      type: CustomLoss
+    id: '2342'
+    inputs:
+      pred_objectness_logits:
+        - outputKey: merged
+          operation: Concatenate
+          name: pred_objectness_logits
+          id: '1997'
+      pred_anchor_deltas:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_316
+          id: '1998'
+      cls_loss_predictions:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_317
+          id: '2000'
+      box_loss_predictions:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_318
+          id: '2002'
+      mask_features:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_319
+          id: '2004'
+      proposal_boxes:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_320
+          id: '2331'
+      proposal_logits:
+        - outputKey: merged
+          operation: TFOpLambda
+          name: tf.expand_dims_77
+          id: '2333'
+      gt_boxes:
+        - outputKey: bboxes
+          operation: GroundTruth
+          id: '2343'
+      gt_polygons:
+        - outputKey: polygons
+          operation: GroundTruth
+          id: '2344'
+    outputs:
+      loss:
+        - inputKey: '0'
+          operation: Adam
+          id: '2347'
+  - operation: GroundTruth
+    data:
+      type: GroundTruth
+      output_name: bboxes
+    id: '2343'
+    inputs: {}
+    outputs:
+      bboxes:
+        - inputKey: bboxes
+          operation: Visualizer
+          id: '2348'
+        - inputKey: gt_boxes
+          operation: Metric
+          id: '2379'
+        - inputKey: gt_boxes
+          operation: CustomLoss
+          id: '2342'
+        - inputKey: gt_boxes
+          operation: Metric
+          id: '2380'
+  - operation: GroundTruth
+    data:
+      type: GroundTruth
+      output_name: polygons
+    id: '2344'
+    inputs: {}
+    outputs:
+      polygons:
+        - inputKey: gt_polygons
+          operation: Metric
+          id: '2379'
+        - inputKey: gt_polygons
+          operation: CustomLoss
+          id: '2342'
+  - operation: Adam
+    data:
+      type: Optimizer
+      custom_input_keys:
+        - 2347-0
+        - 2347-1
+      arg_names:
+        - '0'
+    id: '2347'
+    inputs:
+      '0':
+        - outputKey: loss
+          operation: CustomLoss
+          id: '2342'
+      '1':
+        - outputKey: loss
+          operation: CustomLoss
+          id: '2370'
+    outputs: {}
+  - operation: Visualizer
+    data:
+      type: Visualizer
+      name: Ground Truth Bounding Boxes
+      visualizer_name: Ground Truth Bounding Boxes
+      visualizer_type: ImageWithBBox
+      arg_names:
+        - image
+        - bboxes
+      user_unique_name: Ground Truth Bounding Boxes
+    id: '2348'
+    inputs:
+      bboxes:
+        - outputKey: bboxes
+          operation: GroundTruth
+          id: '2343'
+      image:
+        - outputKey: raw_image
+          operation: Input
+          id: '2349'
+    outputs: {}
+  - operation: Input
+    data:
+      type: Input
+      output_name: raw_image
+    id: '2349'
+    inputs: {}
+    outputs:
+      raw_image:
+        - inputKey: image
+          operation: Visualizer
+          id: '2348'
+        - inputKey: data
+          operation: Visualizer
+          id: '2366'
+        - inputKey: image
+          operation: Visualizer
+          id: '2373'
+        - inputKey: image
+          operation: Visualizer
+          id: '2375'
+        - inputKey: image
+          operation: Visualizer
+          id: '2377'
+  - operation: Visualizer
+    data:
+      type: Visualizer
+      name: Image
+      visualizer_name: Image
+      visualizer_type: Image
+      arg_names:
+        - data
+      user_unique_name: Image
+    id: '2366'
+    inputs:
+      data:
+        - outputKey: raw_image
+          operation: Input
+          id: '2349'
+    outputs: {}
+  - operation: CustomLoss
+    data:
+      arg_names:
+        - pred_boxes
+        - scores
+        - class_ids
+        - pred_masks
+      user_unique_name: predictions_listing
+      name: predictions_listing
+      selected: predictions_listing
+      type: CustomLoss
+    id: '2370'
+    inputs:
+      pred_boxes:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_314
+          id: '1'
+      scores:
+        - outputKey: merged
+          operation: TFOpLambda
+          name: tf.expand_dims_70
+          id: '1653'
+      class_ids:
+        - outputKey: merged
+          operation: TFOpLambda
+          name: tf.expand_dims_71
+          id: '1660'
+      pred_masks:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_315
+          id: '1668'
+    outputs:
+      loss:
+        - inputKey: '1'
+          operation: Adam
+          id: '2347'
+  - operation: Visualizer
+    data:
+      type: Visualizer
+      name: Prediction Bounding Boxes
+      visualizer_name: Prediction Bounding Boxes
+      visualizer_type: ImageWithBBox
+      arg_names:
+        - image
+        - bboxes
+        - scores
+        - class_ids
+      user_unique_name: Prediction Bounding Boxes
+    id: '2373'
+    inputs:
+      bboxes:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_314
+          id: '1'
+      scores:
+        - outputKey: merged
+          operation: TFOpLambda
+          name: tf.expand_dims_70
+          id: '1653'
+      class_ids:
+        - outputKey: merged
+          operation: TFOpLambda
+          name: tf.expand_dims_71
+          id: '1660'
+      image:
+        - outputKey: raw_image
+          operation: Input
+          id: '2349'
+    outputs: {}
+  - operation: Visualizer
+    data:
+      type: Visualizer
+      name: Ground Truth Masks
+      visualizer_name: Ground Truth Masks
+      visualizer_type: ImageMask
+      arg_names:
+        - image
+        - mask
+      user_unique_name: Ground Truth Masks
+    id: '2375'
+    inputs:
+      image:
+        - outputKey: raw_image
+          operation: Input
+          id: '2349'
+      mask:
+        - outputKey: masks
+          operation: GroundTruth
+          id: '2376'
+    outputs: {}
+  - operation: GroundTruth
+    data:
+      type: GroundTruth
+      output_name: masks
+    id: '2376'
+    inputs: {}
+    outputs:
+      masks:
+        - inputKey: mask
+          operation: Visualizer
+          id: '2375'
+  - operation: Visualizer
+    data:
+      type: Visualizer
+      name: Prediction Masks
+      visualizer_name: Prediction Masks
+      visualizer_type: ImageMask
+      arg_names:
+        - image
+        - masks
+        - bboxes
+      user_unique_name: Prediction Masks
+    id: '2377'
+    inputs:
+      bboxes:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_314
+          id: '1'
+      masks:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_315
+          id: '1668'
+      image:
+        - outputKey: raw_image
+          operation: Input
+          id: '2349'
+    outputs: {}
+  - operation: Metric
+    data:
+      type: Metric
+      name: ROI Loss Components
+      metric_name: ROI Loss Components
+      arg_names:
+        - cls_loss_predictions
+        - box_loss_predictions
+        - proposal_boxes
+        - proposal_logits
+        - mask_features
+        - gt_boxes
+        - gt_polygons
+      user_unique_name: ROI Loss Components
+    id: '2379'
+    inputs:
+      cls_loss_predictions:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_317
+          id: '2000'
+      box_loss_predictions:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_318
+          id: '2002'
+      mask_features:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_319
+          id: '2004'
+      proposal_boxes:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_320
+          id: '2331'
+      proposal_logits:
+        - outputKey: merged
+          operation: TFOpLambda
+          name: tf.expand_dims_77
+          id: '2333'
+      gt_boxes:
+        - outputKey: bboxes
+          operation: GroundTruth
+          id: '2343'
+      gt_polygons:
+        - outputKey: polygons
+          operation: GroundTruth
+          id: '2344'
+    outputs: {}
+  - operation: Metric
+    data:
+      type: Metric
+      name: RPN Loss Components
+      metric_name: RPN Loss Components
+      arg_names:
+        - gt_boxes
+        - pred_objectness_logits
+        - pred_anchor_deltas
+      user_unique_name: RPN Loss Components
+    id: '2380'
+    inputs:
+      pred_objectness_logits:
+        - outputKey: merged
+          operation: Concatenate
+          name: pred_objectness_logits
+          id: '1997'
+      pred_anchor_deltas:
+        - outputKey: feature_map
+          operation: Permute
+          name: permute_316
+          id: '1998'
+      gt_boxes:
+        - outputKey: bboxes
+          operation: GroundTruth
+          id: '2343'
+    outputs: {}
+layers: []

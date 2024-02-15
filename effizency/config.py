@@ -1,16 +1,20 @@
 import os
 from typing import Dict, Any, Tuple
+from pathlib import Path
+
 import yaml
 import numpy as np
 import tensorflow as tf
 from detectron2.config import get_cfg
 from detectron2.layers import ShapeSpec
-from detectron2.modeling.anchor_generator import DefaultAnchorGenerator, build_anchor_generator
+from detectron2.modeling.anchor_generator import build_anchor_generator
 
 
 def generate_anchors(feature_maps):
+    root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    file_path = os.path.join(root, 'model/config.yml')
     detectron_cfg = get_cfg()
-    detectron_cfg.merge_from_file('model/config.yml')
+    detectron_cfg.merge_from_file(file_path)
     anchor_generator = build_anchor_generator(detectron_cfg, input_shape=[ShapeSpec(channels=256, stride=2 ** i)
                                                                           for i in range(2, 7)])
 

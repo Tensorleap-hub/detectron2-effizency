@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 
 from code_loader.contract.responsedataclasses import BoundingBox
-from code_loader.contract.visualizer_classes import LeapImageWithBBox, LeapImageMask
+from code_loader.contract.visualizer_classes import LeapImageWithBBox, LeapImageMask, LeapText
 from code_loader.helpers.detection.utils import xyxy_to_xywh_format
 
 from effizency.config import CONFIG
@@ -22,6 +22,7 @@ def bb_gt_visualizer(image: np.ndarray, bboxes: np.ndarray) -> LeapImageWithBBox
     Returns:
     An instance of LeapImageWithBBox containing the input image with ground truth bounding boxes overlaid.
     """
+    bboxes = bboxes[bboxes[..., -1] != CONFIG['background_label']]
     bb_object = [BoundingBox(x=bb[0], y=bb[1], width=bb[2], height=bb[3],
                              label=CONFIG['id_to_label_name'].get(int(bb[4])),
                              confidence=1.0)
@@ -41,6 +42,7 @@ def prediction_bb_visualizer(image: np.ndarray, bboxes: np.ndarray, scores: np.n
     Returns:
     An instance of LeapImageWithBBox containing the input image with predicted bounding boxes overlaid.
     """
+    bboxes = bboxes.transpose((1, 0))
 
     bboxes_fixed = xyxy_to_xywh_format(bboxes)
     normalized_bboxes = np.concatenate([
@@ -67,11 +69,14 @@ def gt_mask_visualizer(image: np.ndarray, mask: np.ndarray) -> LeapImageMask:
     Returns:
     An instance of LeapImageMask containing the input image with ground truth masks overlaid.
     """
+    mask = mask[~(mask < 0).any(axis=(1, 2))]
+
     n_instances = mask.shape[0]
     combined_mask = np.zeros(mask.shape[1:], dtype=np.uint8)
     for i in range(n_instances):
         combined_mask[mask[i] == 1] = i + 1
-    return LeapImageMask(image=image.astype(np.float32), mask=combined_mask, labels=[f'roof_{i}' for i in range(n_instances)])
+    return LeapImageMask(image=image.astype(np.float32), mask=combined_mask,
+                         labels=['background'] + [f'roof_{i}' for i in range(n_instances)])
 
 
 def pred_mask_visualizer(image: np.ndarray, masks: np.ndarray, bboxes: np.ndarray) -> LeapImageMask:
@@ -86,6 +91,9 @@ def pred_mask_visualizer(image: np.ndarray, masks: np.ndarray, bboxes: np.ndarra
     Returns:
     An instance of LeapImageMask containing the input image with predicted masks overlaid.
     """
+    masks = masks.transpose((3, 0, 1, 2))
+    bboxes = bboxes.transpose((1, 0))
+
     final_mask = build_final_mask_from_predictions(masks, bboxes, image.shape[:-1])
     return LeapImageMask(image=image.astype(np.float32), mask=final_mask,
-                         labels=[f'roof_{i}' for i in range(masks.shape[0])])
+                         labels=['background'] + [f'roof_{i}' for i in range(masks.shape[0])])

@@ -45,6 +45,7 @@ model_ts*.txt
 _darcs
 .python-version
 *.onnx
+*.h5
 
 # project dirs
 /detectron2/model_zoo/configs

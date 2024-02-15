@@ -205,8 +205,7 @@ class GeneralizedRCNN(nn.Module):
 
         if detected_instances is None:
             if self.proposal_generator is not None:
-                proposals, _, anchors, pred_objectness_logits, pred_anchor_deltas = self.proposal_generator(images, features, None)
-                anchors = torch.cat([a.tensor for a in anchors], 0)
+                proposals, _, pred_objectness_logits, pred_anchor_deltas = self.proposal_generator(images, features, None)
                 pred_objectness_logits = torch.cat(pred_objectness_logits, 1)
                 pred_anchor_deltas = torch.cat(pred_anchor_deltas, 1)
             else:
@@ -221,7 +220,7 @@ class GeneralizedRCNN(nn.Module):
         if do_postprocess:
             assert not torch.jit.is_scripting(), "Scripting is not supported for postprocess."
             post_processed_results = GeneralizedRCNN._postprocess(results, batched_inputs, images.image_sizes)
-            return post_processed_results, anchors, pred_objectness_logits, pred_anchor_deltas, cls_box_loss_predictions, mask_loss_features, mask_loss_instances
+            return post_processed_results, pred_objectness_logits, pred_anchor_deltas, cls_box_loss_predictions, mask_loss_features, mask_loss_instances
         return results
 
     def preprocess_image(self, batched_inputs: List[Dict[str, torch.Tensor]]):
