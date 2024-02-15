@@ -27,7 +27,10 @@ def get_bboxes(annotations: Dict) -> np.ndarray:
         bboxes_fixed[:, 3] / image_height  # Normalized (h)
     ], axis=1)
     bboxes = np.concatenate([normalized_bboxes, labels[:, np.newaxis]], axis=1)
-    return bboxes
+    gt_bboxes = np.zeros((CONFIG['max_instances_per_image'], 5), dtype=np.float32)
+    gt_bboxes[:, -1] = CONFIG['background_label']
+    gt_bboxes[:len(bboxes)] = bboxes
+    return gt_bboxes
 
 
 def polygon2bbox(polygon: List[List[int]]) -> np.ndarray:
@@ -140,7 +143,7 @@ def resize_predicted_masks_to_original_image_shape(predicted_masks: tf.Tensor,
             continue
 
         # Resize mask to match the bounding box size
-        mask_resized = cv2.resize(mask[0].numpy(), (x2 - x1, y2 - y1))
+        mask_resized = cv2.resize(np.asarray(mask[0]), (x2 - x1, y2 - y1))
         mask_resized = (mask_resized > CONFIG['mask_threshold']).astype(np.uint8)
 
         # Assign an integer i to the mask for instance_i

@@ -191,7 +191,7 @@ setup(
         "black",
         "packaging",
         # NOTE: When adding new dependencies, if it is required at import time (in addition
-        # to runtime), it probably needs to appear in docs/requirements.txt, or as a mock
+        # to runtime), it probably needs to appear in docs/detectron_requirements.txt, or as a mock
         # in docs/conf.py
     ],
     extras_require={

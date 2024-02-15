@@ -1,8 +1,16 @@
-codeIntegrationId: 658a990c2ee634001941247a
-projectId: 658a99062ee6340019412476
-secretId: 
-entryFile: 'leap_binder.py'
+codeIntegrationId: 65ce048ff1b1eb5c6bbb4b86
+projectId: 65cc868afac726a6b64ee65b
+secretId: 65cc86b8fac726a6b64ee65f
+entryFile: leap_binder.py
 include:
-  - leap_binder.py
-  - leap_test.py
-  - leap_custom_test.py
+    - leap_binder.py
+    - leap_test.py
+    - leap_custom_test.py
+    - effizency/project_config.yaml
+    - effizency/config.py
+    - effizency/visualizers.py
+    - effizency/metrics/*.py
+    - effizency/utils/*.py
+    - detectron2/**/**/*.py
+    - detectron2/**/*.py
+    - model/config.yml

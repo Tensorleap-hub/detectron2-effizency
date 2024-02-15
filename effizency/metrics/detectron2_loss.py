@@ -1,5 +1,7 @@
 from typing import List, Dict
 import tensorflow as tf
+import torch.nn.functional as F
+import torch
 import numpy as np
 from code_loader.helpers.detection.utils import xywh_to_xyxy_format
 from keras.backend import binary_crossentropy
@@ -8,11 +10,10 @@ from effizency.utils.loss_utils import label_and_sample_anchors, get_deltas, lab
     crop_and_resize, nonzero
 
 
-def calc_detectron2_loss(gt_boxes: tf.Tensor,
+def calc_detectron2_loss(gt_boxes: tf.Tensor, gt_polygons: tf.Tensor,
                          pred_objectness_logits: tf.Tensor, pred_anchor_deltas: tf.Tensor,
                          cls_loss_predictions: tf.Tensor, box_loss_predictions: tf.Tensor,
-                         proposal_boxes: tf.Tensor, proposal_logits: tf.Tensor, mask_features: tf.Tensor,
-                         gt_polygons: tf.Tensor) -> tf.Tensor:
+                         proposal_boxes: tf.Tensor, proposal_logits: tf.Tensor, mask_features: tf.Tensor) -> tf.Tensor:
     """
     Keras' implementation of Detectron2 loss function.
         Args:
@@ -29,10 +30,7 @@ def calc_detectron2_loss(gt_boxes: tf.Tensor,
         Returns:
             tf.Tensor: The calculated loss.
     """
-    anchors = CONFIG['anchors']
-    boxes_coor = gt_boxes[..., :-1] * CONFIG['image_size'][0]
-    gt_boxes = tf.concat([xywh_to_xyxy_format(boxes_coor), gt_boxes[..., -1, tf.newaxis]], axis=-1)
-    rpn_losses = calc_rpn_loss(gt_boxes, anchors, pred_objectness_logits, pred_anchor_deltas)
+    rpn_losses = calc_rpn_loss(gt_boxes, pred_objectness_logits, pred_anchor_deltas)
     roi_losses = calc_roi_losses(cls_loss_predictions, box_loss_predictions, proposal_boxes, proposal_logits,
                                  mask_features, gt_boxes, gt_polygons)
     losses = {}
@@ -41,7 +39,7 @@ def calc_detectron2_loss(gt_boxes: tf.Tensor,
     return sum(losses.values())
 
 
-def calc_rpn_loss(gt_boxes: tf.Tensor, anchors: tf.Tensor,
+def calc_rpn_loss(gt_boxes: tf.Tensor,
                   pred_objectness_logits: tf.Tensor, pred_anchor_deltas: tf.Tensor) -> Dict[str, tf.Tensor]:
     """
     Keras' implementation of RPN loss function.
@@ -53,9 +51,17 @@ def calc_rpn_loss(gt_boxes: tf.Tensor, anchors: tf.Tensor,
     Returns:
         dict[str, tf.Tensor]: A dict of loss values.
     """
+    pred_anchor_deltas = tf.transpose(pred_anchor_deltas, (0, 2, 1))
+    # drop padding
+    gt_boxes = tf.expand_dims(gt_boxes[gt_boxes[..., -1] != CONFIG['background_label']], 0)
+    boxes_coor = gt_boxes[..., :-1] * CONFIG['image_size'][0]
+    gt_boxes = tf.concat([xywh_to_xyxy_format(boxes_coor), gt_boxes[..., -1, tf.newaxis]], axis=-1)
+    anchors = CONFIG['anchors']
     boxes = gt_boxes[..., :-1]
     gt_labels, gt_boxes = label_and_sample_anchors(anchors, boxes)
     losses = calc_rpn_losses(anchors, pred_objectness_logits, gt_labels, pred_anchor_deltas, gt_boxes)
+    # imitate batch of 1
+    losses = {k: tf.reshape(v, (1,)) for k, v in losses.items()}
     return losses
 
 
@@ -76,6 +82,20 @@ def calc_roi_losses(cls_loss_predictions: tf.Tensor, box_loss_predictions: tf.Te
     Returns:
         dict[str, tf.Tensor]: A dict of loss values.
     """
+    cls_loss_predictions = tf.transpose(cls_loss_predictions[0], (1, 0))
+    box_loss_predictions = tf.transpose(box_loss_predictions[0], (1, 0))
+    proposal_boxes = tf.transpose(proposal_boxes[0], (1, 0))
+    proposal_logits = proposal_logits[0]
+    mask_features = tf.transpose(mask_features[0], (3, 0, 1, 2))
+    gt_polygons = gt_polygons[0]
+
+    # drop padding
+    gt_polygons = tf.expand_dims(gt_polygons[~np.all(gt_polygons == -1, axis=1)], 0)
+    gt_boxes = tf.expand_dims(gt_boxes[gt_boxes[..., -1] != CONFIG['background_label']], 0)
+
+    boxes_coor = gt_boxes[..., :-1] * CONFIG['image_size'][0]
+    gt_boxes = tf.concat([xywh_to_xyxy_format(boxes_coor), gt_boxes[..., -1, tf.newaxis]], axis=-1)
+
     gt_classes = gt_boxes[..., -1]
     gt_boxes = gt_boxes[..., :-1]
     batch = cls_loss_predictions.shape[0] // 1000
@@ -102,6 +122,7 @@ def calc_roi_losses(cls_loss_predictions: tf.Tensor, box_loss_predictions: tf.Te
                                proposal_boxes=proposal_boxes, fg_indices=fg_instances)
     losses.update(box_losses)
     losses.update({'mask_loss': mask_loss})
+    losses = {k: tf.reshape(v, (1,)) for k, v in losses.items()}
     return losses
 
 
@@ -219,11 +240,11 @@ def calc_mask_loss(pred_mask_logits: tf.Tensor, gt_classes: tf.Tensor, gt_polygo
             pred_mask_logits_per_image, proposal_boxes_per_image, gt_classes_per_image,
             gt_poly_per_image, fg_indices_per_image
     ) in zip(
-            pred_mask_logits,
-            proposal_boxes,
-            gt_classes,
-            gt_polygons,
-            fg_indices):
+        pred_mask_logits,
+        proposal_boxes,
+        gt_classes,
+        gt_polygons,
+        fg_indices):
         if gt_classes_per_image.shape[0] == 0:
             continue
 
@@ -318,16 +339,31 @@ def calc_rpn_losses(anchors: tf.Tensor,
         smooth_l1_beta=CONFIG['smooth_l1_beta'],
     )
 
-    # Calculate objectness loss using Keras binary crossentropy
-    objectness_loss = tf.reduce_sum(binary_crossentropy(
-        tf.concat(pred_objectness_logits, axis=1)[valid_mask],
-        tf.cast(gt_labels[valid_mask], tf.float32),
-        from_logits=True
-    ))
+    # Assuming pred_objectness_logits is a TensorFlow tensor and valid_mask is a boolean mask or index array
+    valid_mask_torch = torch.tensor(np.asarray(valid_mask))
+
+    # Convert TensorFlow tensors to PyTorch tensors for operations
+    pred_objectness_logits_torch = torch.tensor(np.asarray(pred_objectness_logits))
+    gt_labels_torch = torch.tensor(np.asarray(gt_labels)).to(
+        torch.float32)  # Ensure gt_labels is initially a TensorFlow tensor
+
+    # Apply boolean indexing in PyTorch
+    filtered_logits = pred_objectness_logits_torch[valid_mask_torch]
+    filtered_gt_labels = gt_labels_torch[valid_mask_torch]
+
+    # Compute loss
+    objectness_loss_torch = F.binary_cross_entropy_with_logits(
+        filtered_logits,
+        filtered_gt_labels,
+        reduction="sum",
+    )
+
+    # If you need the loss back in TensorFlow
+    objectness_loss_tf = tf.convert_to_tensor(np.asarray(objectness_loss_torch))
 
     normalizer = CONFIG['rpn_loss_batch_size_per_image'] * num_images
     losses = {
-        "loss_rpn_cls": objectness_loss / normalizer,
+        "loss_rpn_cls": objectness_loss_tf / normalizer,
         "loss_rpn_loc": localization_loss / normalizer,
     }
     losses = {k: v * CONFIG['rpn_loss_weights'].get(k, 1.0) for k, v in losses.items()}

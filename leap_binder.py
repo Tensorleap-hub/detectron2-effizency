@@ -1,10 +1,9 @@
-import json
 import os
+import json
 from typing import List, Union, Dict
-import cv2
 import numpy as np
-import detectron2.data.transforms as T
 
+from detectron2.data.transforms.augmentation_impl import ResizeShortestEdge
 from detectron2.data.detection_utils import read_image
 
 # Tensorleap imports
@@ -14,30 +13,29 @@ from code_loader.contract.enums import LeapDataType
 
 from effizency.config import CONFIG
 from effizency.metrics.detectron2_loss import calc_rpn_loss, calc_roi_losses, calc_detectron2_loss
+from effizency.metrics.dummy_loss import predictions_listing, zero_loss
 from effizency.utils.gcs_utils import download_gcs
 from effizency.utils.general_utils import get_bboxes, is_faulty_mask
 from effizency.utils.loss_utils import polygons_to_bitmask
 from effizency.utils.visualization_utils import polygons_to_mask
-from effizency.visualizers import bb_gt_visualizer
+from effizency.visualizers import bb_gt_visualizer, prediction_bb_visualizer, gt_mask_visualizer, pred_mask_visualizer
 
 
 # Preprocess Function
 def preprocess_func() -> List[PreprocessResponse]:
     train_images = download_gcs(CONFIG['train_file'])
     with open(train_images, 'r') as f:
-        train_list_of_paths = f.read().split("\n")
+        train_list_of_paths = f.read().split("\n")[:-1]
 
     val_images = download_gcs(CONFIG['val_file'])
     with open(val_images, 'r') as f:
-        val_list_of_paths = f.read().split("\n")
+        val_list_of_paths = f.read().split("\n")[:-1]
 
     train_size = min(len(train_list_of_paths), CONFIG['train_size'])
     val_size = min(len(val_list_of_paths), CONFIG['val_size'])
 
     train_list_of_paths = [os.path.join('train', p) for p in train_list_of_paths[:train_size]]
     val_list_of_paths = [os.path.join('val', p) for p in val_list_of_paths[:val_size]]
-
-
 
     train = PreprocessResponse(length=len(train_list_of_paths), data={'images': train_list_of_paths})
     val = PreprocessResponse(length=len(val_list_of_paths), data={'images': val_list_of_paths})
@@ -50,7 +48,7 @@ def input_encoder(idx: int, preprocess: PreprocessResponse) -> np.ndarray:
     gcs_img_path = preprocess.data['images'][idx]
     local_img_path = download_gcs(gcs_img_path)
     img = read_image(local_img_path, format=CONFIG['image_format'])
-    aug = T.ResizeShortestEdge(CONFIG['image_size'], CONFIG['max_size_test'])
+    aug = ResizeShortestEdge(CONFIG['image_size'], CONFIG['max_size_test'])
     img = aug.get_transform(img).apply_image(img)
     img = img - CONFIG['pixel_means']
     img = img.astype("float32")
@@ -98,19 +96,25 @@ def polygons_gt_encoder(idx: int, preprocessing: PreprocessResponse) -> np.ndarr
                       (0, CONFIG['max_polygon_length'] - flatten_poly.shape[0]),
                       mode='constant', constant_values=-1)
         polygons.append(poly)
-    return np.asarray(polygons, dtype=np.float32)
+    gt_polygons = -1 * np.ones((CONFIG['max_instances_per_image'], CONFIG['max_polygon_length']), dtype=np.float32)
+    gt_polygons[:len(polygons)] = np.asarray(polygons)
+    return gt_polygons
 
 
 def masks_gt_encoder(idx: int, preprocessing: PreprocessResponse) -> np.ndarray:
     anns = get_anns(idx, preprocessing)
     instances_anns = anns['shapes']
     mask = [polygons_to_mask(p['points'], anns['imageHeight'], anns['imageWidth']) for p in instances_anns]
-    return np.asarray(mask)
+    gt_masks = -1 * np.ones((CONFIG['max_instances_per_image'], anns['imageHeight'], anns['imageWidth']),
+                            dtype=np.float32)
+    gt_masks[:len(mask)] = np.asarray(mask)
+    return gt_masks
 
 
 # Metadata
 def n_open_polygons(polygons: np.ndarray, image_width: int, image_height: int) -> int:
     open_poly = []
+    # remove rows with only negative values
     for poly in polygons:
         # remove padding of -1
         poly = poly[poly != -1]
@@ -137,6 +141,10 @@ def get_metadata_dict(idx: int, preprocessing: PreprocessResponse) -> Dict[str, 
     polygons = polygons_gt_encoder(idx, preprocessing)
     bboxes = bbox_gt_encoder(idx, preprocessing)
     masks = masks_gt_encoder(idx, preprocessing)
+    # drop padding
+    polygons = polygons[~np.all(polygons == -1, axis=1)]
+    bboxes = bboxes[bboxes[..., -1] != CONFIG['background_label']]
+    masks = masks[~(masks < 0).any(axis=(1, 2))]
 
     mask_areas = get_mask_areas(masks)
 
@@ -167,12 +175,21 @@ leap_binder.set_ground_truth(function=original_image_shape_encoder, name='origin
 leap_binder.set_metadata(function=get_metadata_dict, name='metadata')
 # set custom losses
 leap_binder.add_custom_loss(function=calc_detectron2_loss, name='Detectron2 Loss')
+leap_binder.add_custom_loss(function=predictions_listing, name='predictions_listing')
+leap_binder.add_custom_loss(function=zero_loss, name='zero_loss')
 # set custom metrics
 leap_binder.add_custom_metric(function=calc_rpn_loss, name='RPN Loss Components')
 leap_binder.add_custom_metric(function=calc_roi_losses, name='ROI Loss Components')
 # set custom visualizers
 leap_binder.set_visualizer(function=bb_gt_visualizer, name='Ground Truth Bounding Boxes',
                            visualizer_type=LeapDataType.ImageWithBBox)
+leap_binder.set_visualizer(function=prediction_bb_visualizer, name='Prediction Bounding Boxes',
+                           visualizer_type=LeapDataType.ImageWithBBox)
+leap_binder.set_visualizer(function=gt_mask_visualizer, name='Ground Truth Masks',
+                           visualizer_type=LeapDataType.ImageMask)
+leap_binder.set_visualizer(function=pred_mask_visualizer, name='Prediction Masks',
+                           visualizer_type=LeapDataType.ImageMask)
+
 
 if __name__ == '__main__':
     leap_binder.check()

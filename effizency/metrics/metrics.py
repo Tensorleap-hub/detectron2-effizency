@@ -37,14 +37,16 @@ def calc_mean_mask_iou(gt_masks: tf.Tensor, pred_masks: tf.Tensor, pred_bboxes: 
 
     Args:
         gt_masks: Tensor of shape [M, H, W] containing ground truth masks
-        pred_masks: Tensor of shape [N, 1, H, W] containing predicted masks
+        pred_masks: Tensor of shape [1, H, W, N] containing predicted masks
         pred_bboxes: Tensor of shape [N, 4] containing predicted bounding boxes
     Returns:
         Tensor of shape [] containing the mean IoU score.
     """
-
+    pred_masks = tf.transpose(pred_masks[0], (3, 0, 1, 2))
+    pred_bboxes = tf.transpose(pred_bboxes[0], (1, 0))
+    gt_masks = gt_masks[0].numpy()
+    gt_masks = gt_masks[~(gt_masks < 0).any(axis=(1, 2))]
     y_pred = tf.convert_to_tensor(resize_predicted_masks_to_original_image_shape(pred_masks, pred_bboxes))
-    gt_masks = tf.squeeze(gt_masks, axis=0)
     # Calculate the IoU matrix
     iou_matrix = calculate_iou_matrix(gt_masks, y_pred)
 

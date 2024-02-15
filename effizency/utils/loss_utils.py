@@ -1,5 +1,5 @@
 from typing import List, Tuple, Union
-
+import psutil
 import tensorflow as tf
 import numpy as np
 
@@ -312,6 +312,15 @@ def get_deltas(src_boxes, target_boxes):
     return deltas
 
 
+def log_memory_usage(message: str):
+    """
+    Logs the current memory usage.
+    """
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    print(f"{message}: {mem_info.rss / 1024 ** 2:.2f} MB")  # rss: Resident Set Size
+
+
 def crop_and_resize(boxes: tf.Tensor, polygons: tf.Tensor, mask_size: int) -> tf.Tensor:
     """
     Crops each mask by the given box and resizes results to (mask_size, mask_size).
@@ -327,13 +336,16 @@ def crop_and_resize(boxes: tf.Tensor, polygons: tf.Tensor, mask_size: int) -> tf
     boxes = boxes.cpu()  # Move boxes to CPU
 
     results = [
-        rasterize_polygons_within_box(poly, box.numpy(), mask_size)
+        rasterize_polygons_within_box(poly, box, mask_size)
         for poly, box in zip(polygons, boxes)
     ]
 
     if not results:
-        return tf.zeros((0, mask_size, mask_size), dtype=tf.bool, device=device)
-    return tf.stack(results, axis=0)
+        output = tf.zeros((0, mask_size, mask_size), dtype=tf.bool, device=device)
+    else:
+        output = tf.stack(results, axis=0)
+
+    return output
 
 
 def rasterize_polygons_within_box(polygons: List[tf.Tensor], box: tf.Tensor, mask_size: int) -> tf.Tensor:

@@ -1,11 +1,11 @@
 train_file: train_images_names.txt
 val_file: val_images_names.txt
-train_size: 8
-val_size: 8
+train_size: 5000
+val_size: 50
 
 label_name_to_id:
   roof: 0
-
+background_label: 1
 max_polygon_length: 10000
 
 pixel_means:
@@ -60,13 +60,14 @@ GCS_BUCKET_NAME: effizency-datasets
 GCS_PROJECT_ID: effizency-dev-project
 
 # Visualization
-mask_threshold: 0.15
+mask_threshold: 0.35
 
 # metadata
 small_bb_threshold: 0.05
 
 # model config
 model_config_path: model/config.yml
+max_instances_per_image: 20
 
 feature_maps:
   - - 200
