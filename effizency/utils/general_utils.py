@@ -167,3 +167,27 @@ def is_faulty_mask(mask):
         return True  # Multiple disconnected objects indicate discontinuity
 
     return False
+
+
+
+def count_edge_boxes(gt_bboxes):
+    """
+    This function return counts of boxes that are near image edge
+    Assume inputs shaped as: 5 columns: xc, yc, w, h, label_id
+    the coordinates are normalized to the original image size
+    """
+    min_thresh, max_thresh = 0.05, 0.95
+    if len(gt_bboxes.shape) == 2:
+        gt_bboxes = gt_bboxes[np.newaxis, ...]
+    cnts = np.zeros(len(gt_bboxes))
+    for bi, boxes in enumerate(gt_bboxes):
+        for box in boxes:
+            xc, yc, w, h, label_id = box
+            if label_id == CONFIG["background_label"]:
+                break   # done with anns
+            xmin, xmax = xc - (w/2), xc + (w/2)
+            ymin, ymax = yc - (h/2), yc + (h/2)
+            if (xmax > max_thresh) or (xmin < min_thresh) or (ymax > max_thresh) or (ymin < min_thresh):
+                cnts[bi] += 1
+    return cnts.mean()
+

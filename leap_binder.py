@@ -15,7 +15,7 @@ from effizency.config import CONFIG
 from effizency.metrics.detectron2_loss import calc_rpn_loss, calc_roi_losses, calc_detectron2_loss
 from effizency.metrics.dummy_loss import predictions_listing, zero_loss
 from effizency.utils.gcs_utils import download_gcs
-from effizency.utils.general_utils import get_bboxes, is_faulty_mask
+from effizency.utils.general_utils import get_bboxes, is_faulty_mask, count_edge_boxes
 from effizency.utils.loss_utils import polygons_to_bitmask
 from effizency.utils.visualization_utils import polygons_to_mask
 from effizency.visualizers import bb_gt_visualizer, prediction_bb_visualizer, gt_mask_visualizer, pred_mask_visualizer
@@ -153,6 +153,7 @@ def get_metadata_dict(idx: int, preprocessing: PreprocessResponse) -> Dict[str, 
         'original_height': anns['imageHeight'],
         'original_width': anns['imageWidth'],
         'n_faulty_polygons': n_open_polygons(polygons, anns['imageWidth'], anns['imageHeight']),
+        'n_edge_boxes': count_edge_boxes(bboxes),
         'n_small_bboxes': n_small_bboxes(bboxes),
         'largest_mask_area': np.max(mask_areas),
         'smallest_mask_area': np.min(mask_areas),
